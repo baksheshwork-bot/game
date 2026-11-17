@@ -437,9 +437,9 @@ function musicStart(){
   if(MUS.on||muted)return;const c=ac();if(!c)return;
   if(!MUS.noise){const b=c.createBuffer(1,c.sampleRate*.5,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;MUS.noise=b;}
   MUS.master=c.createGain();MUS.master.gain.setValueAtTime(0.0001,c.currentTime);
-  MUS.master.gain.linearRampToValueAtTime(.32,c.currentTime+.5);
+  MUS.master.gain.linearRampToValueAtTime(1.1,c.currentTime+.4);
   const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=3800;
-  MUS.master.connect(lp);lp.connect(c.destination);
+  const cp=c.createDynamicsCompressor();MUS.master.connect(lp);lp.connect(cp);cp.connect(c.destination);
   MUS.on=true;MUS.next=c.currentTime+.08;MUS.step=0;
   MUS.timer=setInterval(musicSched,60);musicSched();
 }
@@ -453,6 +453,9 @@ function syncMusic(){
   const want=view==='game'&&S&&S.phase==='idle'&&!S.modal&&!muted&&!S.timeUp;
   want?musicStart():musicStop();
 }
+addEventListener('pointerdown',()=>{ac();syncMusic();},{passive:true});
+addEventListener('keydown',()=>{ac();syncMusic();});
+
 const fx=document.getElementById('fx'), fctx=fx.getContext('2d');
 let parts=[], fxRun=false;
 function sizeFx(){fx.width=innerWidth;fx.height=innerHeight;}
