@@ -20,6 +20,7 @@ button.on{background:#f08a1c;border-color:#ffd089;color:#1b0b00}
 <button data-s="1">١ — مسابقة كلاسيكية<small>لحن واضح يتكرر مع إيقاع ثابت، مثل برامج المسابقات</small></button>
 <button data-s="2">٢ — تشويق نابض<small>أبطأ وأكثر توترًا: نبض قلب وتكتكة ونغمات متباعدة</small></button>
 <button data-s="3">٣ — حماس سريع<small>إيقاف سريع وخفيف ومرح، مناسب للتنافس بين الفرق</small></button>
+<button data-s="4">٤ — أسلوب «من سيربح المليون»<small>نبض منخفض متواصل وتوتر يتصاعد مع طبول في النهاية (أسلوب مشابه وليس اللحن الأصلي)</small></button>
 </div>
 <script>
 let AC=null,master=null,noise=null,timer=null,next=0,step=0,cur=0;
@@ -64,7 +65,16 @@ function s3(st,t,sd){const b=Math.floor(st/16)%4,p=st%16;
   const m=L3[b][p];if(m)mNote(m,t,sd*1.6,'triangle',.14);
   if(b===3&&p>=12)mNoise(t,sd*.9,.06+(p-12)*.04,3500);}
 
-const S={1:{f:s1,bpm:112},2:{f:s2,bpm:100},3:{f:s3,bpm:132}};
+/* ٤ — أسلوب «من سيربح المليون» */
+const R4=[65.41,65.41,51.91,49],T4=[[622.25,783.99],[622.25,783.99],[554.37,698.46],[493.88,587.33]];
+function s4(st,t,sd){const b=Math.floor(st/16)%4,p=st%16;
+  if(p===0){mNote(R4[b],t,sd*15.5,'sawtooth',.1);mNote(R4[b]*1.5,t,sd*15.5,'sawtooth',.05);}
+  if(p%2===0)mNote(R4[b]*2,t,sd*1.5,'triangle',p===0||p===6||p===10?.2:.11);
+  if(p===0||p===8)mNote(90,t,.3,'sine',.7,40);
+  T4[b].forEach(f=>mNote(f,t,sd*.95,'sawtooth',.016));
+  if(b===2&&p===8)mNote(1046.5,t,sd*6,'sine',.05);
+  if(b===3&&p>=8){mNote(90,t,.18,'sine',.3+(p-8)*.05,45);mNoise(t,sd,.02+(p-8)*.012,2000);}}
+const S={1:{f:s1,bpm:112},2:{f:s2,bpm:100},3:{f:s3,bpm:132},4:{f:s4,bpm:92}};
 function sched(){const c=AC,s=S[cur],sd=60/s.bpm/4;while(next<c.currentTime+.25){s.f(step,next,sd);next+=sd;step++;}}
 function stop(){clearInterval(timer);timer=null;if(master){const m=master;m.gain.cancelScheduledValues(AC.currentTime);m.gain.setValueAtTime(Math.max(.0001,m.gain.value),AC.currentTime);m.gain.linearRampToValueAtTime(.0001,AC.currentTime+.2);setTimeout(()=>{try{m.disconnect()}catch(e){}},400);}cur=0;}
 function play(n){const c=ac();
