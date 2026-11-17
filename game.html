@@ -401,7 +401,58 @@ const SFX={
   win:()=>[523,659,784,1047,784,1047,1319,1568].forEach((f,i)=>tone(f,.35,'triangle',.22,i*.15))
 };
 
-/* ---------- قصاصات ورقية ---------- */
+/* ---------- موسيقى حماسية أثناء السؤال (تُولَّد بالكود) ---------- */
+const MUS={on:false,timer:null,next:0,step:0,master:null,noise:null};
+const M_ROOT=[55,43.65,65.41,49];
+const M_CH=[[440,523.25,659.25],[349.23,440,523.25],[523.25,659.25,783.99],[392,493.88,587.33]];
+const M_ARP=[0,1,2,1,0,1,2,1,0,1,2,1,2,1,0,1];
+function mNote(f,t,d,type,v,slide){
+  const c=AC,o=c.createOscillator(),g=c.createGain();
+  o.type=type;o.frequency.setValueAtTime(f,t);
+  if(slide)o.frequency.exponentialRampToValueAtTime(slide,t+d);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v,t+.01);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(MUS.master);o.start(t);o.stop(t+d+.05);
+}
+function mNoise(t,d,v,hp){
+  const c=AC,s=c.createBufferSource(),g=c.createGain(),f=c.createBiquadFilter();
+  s.buffer=MUS.noise;f.type='highpass';f.frequency.value=hp;
+  g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  s.connect(f);f.connect(g);g.connect(MUS.master);s.start(t);s.stop(t+d+.02);
+}
+function musicStep(st,t,sd){
+  const bar=Math.floor(st/16)%4,p=st%16,root=M_ROOT[bar],ch=M_CH[bar];
+  if(p%4===0){mNote(150,t,.16,'sine',.55,45);}                       // طبلة
+  if(p===4||p===12){mNoise(t,.14,.22,1500);mNote(220,t,.08,'triangle',.18);} // سنير
+  if(p%2===0)mNoise(t,.04,p%4===2?.12:.05,7000);                     // هاي-هات
+  if(p%2===0)mNote(p===6||p===14?root*2:root,t,sd*1.8,'sawtooth',.2);   // الباص
+  mNote(ch[M_ARP[p]]*(p%4===0?1:2),t,sd*1.6,'square',p%4===0?.07:.045); // الأربيج
+  if(p===0||p===6||p===10)ch.forEach(f=>mNote(f,t,sd*2.4,'sawtooth',.05)); // ضربات الوتر
+}
+function musicSched(){
+  if(!MUS.on||!AC)return;
+  const bpm=(S&&cfg.time&&S.left>0&&S.left<=8)?150:128,sd=60/bpm/4;
+  while(MUS.next<AC.currentTime+.25){musicStep(MUS.step,MUS.next,sd);MUS.next+=sd;MUS.step++;}
+}
+function musicStart(){
+  if(MUS.on||muted)return;const c=ac();if(!c)return;
+  if(!MUS.noise){const b=c.createBuffer(1,c.sampleRate*.5,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;MUS.noise=b;}
+  MUS.master=c.createGain();MUS.master.gain.setValueAtTime(0.0001,c.currentTime);
+  MUS.master.gain.linearRampToValueAtTime(.32,c.currentTime+.5);
+  const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=3800;
+  MUS.master.connect(lp);lp.connect(c.destination);
+  MUS.on=true;MUS.next=c.currentTime+.08;MUS.step=0;
+  MUS.timer=setInterval(musicSched,60);musicSched();
+}
+function musicStop(){
+  if(!MUS.on)return;MUS.on=false;clearInterval(MUS.timer);
+  const m=MUS.master,c=AC;
+  if(c&&m){m.gain.cancelScheduledValues(c.currentTime);m.gain.setValueAtTime(Math.max(.0001,m.gain.value),c.currentTime);
+    m.gain.linearRampToValueAtTime(0.0001,c.currentTime+.25);setTimeout(()=>{try{m.disconnect();}catch(e){}},500);}
+}
+function syncMusic(){
+  const want=view==='game'&&S&&S.phase==='idle'&&!S.modal&&!muted&&!S.timeUp;
+  want?musicStart():musicStop();
+}
 const fx=document.getElementById('fx'), fctx=fx.getContext('2d');
 let parts=[], fxRun=false;
 function sizeFx(){fx.width=innerWidth;fx.height=innerHeight;}
@@ -433,7 +484,7 @@ function syncSetup(){
   if(ts)cfg.time=+ts.value;
 }
 function renderSetup(){
-  view='setup';stopTimer();
+  view='setup';stopTimer();musicStop();
   app.innerHTML=`
   <div class="screen"><div class="card">
     <img class="logo-img" alt="العبها صح واربح!" src="${LOGO}">
@@ -484,7 +535,7 @@ function startTimer(){
     const before=Math.ceil(S.left);
     S.left=Math.max(0,S.left-dt);
     if(Math.ceil(S.left)!==before&&S.left>0&&S.left<=5)SFX.tick();
-    if(S.left<=0){S.timeUp=true;SFX.buzz();setMsg('انتهى الوقت! ⏰ (يقرر المقدّم: المتابعة أو كشف الإجابة)','warn');}
+    if(S.left<=0){S.timeUp=true;SFX.buzz();setMsg('انتهى الوقت! ⏰ (يقرر المقدّم: المتابعة أو كشف الإجابة)','warn');syncMusic();}
     updateTimerUI();
   },200);
 }
@@ -561,7 +612,7 @@ function render(){
         <div class="pips">${['fifty','poll','call'].map(k=>`<i class="${p.used[k]?'x':''}"></i>`).join('')}</div>
       </button>`).join('')}</div>
   </div>${modalHTML()}`;
-  updateTimerUI();
+  updateTimerUI();syncMusic();
   if(S.modal&&S.modal.type==='poll')setTimeout(()=>{
     document.querySelectorAll('.bar i').forEach(el=>el.style.height=el.dataset.h+'%');
   },60);
@@ -665,7 +716,7 @@ function next(){
 
 /* ---------- النهاية ---------- */
 function endGame(){
-  stopTimer();view='end';
+  stopTimer();musicStop();view='end';
   const sorted=S.players.slice().sort((a,b)=>b.score-a.score);
   const top=sorted[0].score,winners=sorted.filter(p=>p.score===top);
   const medals=['🥇','🥈','🥉'];
