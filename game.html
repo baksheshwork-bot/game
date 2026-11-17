@@ -429,18 +429,21 @@ function menuStep(st,t,sd){
   if(p===10)mNote(ch[(bar+1)%3]*2,t,sd*4,'triangle',.05);
   if(bar===3&&p>=8)mNoise(t,sd*1.5,.03+(p-8)*.012,2500+(p-8)*600);                       // صعود التشويق
   if(bar===3&&p===15)mNote(ch[0]*2,t,sd*3,'sawtooth',.06);
-}function musicStep(st,t,sd){if(MUS.mode==='menu')return menuStep(st,t,sd);
-  const bar=Math.floor(st/16)%4,p=st%16,root=M_ROOT[bar],ch=M_CH[bar];
-  if(p%4===0){mNote(150,t,.16,'sine',.55,45);}                       // طبلة
-  if(p===4||p===12){mNoise(t,.14,.22,1500);mNote(220,t,.08,'triangle',.18);} // سنير
-  if(p%2===0)mNoise(t,.04,p%4===2?.12:.05,7000);                     // هاي-هات
-  if(p%2===0)mNote(p===6||p===14?root*2:root,t,sd*1.8,'sawtooth',.2);   // الباص
-  mNote(ch[M_ARP[p]]*(p%4===0?1:2),t,sd*1.6,'square',p%4===0?.07:.045); // الأربيج
-  if(p===0||p===6||p===10)ch.forEach(f=>mNote(f,t,sd*2.4,'sawtooth',.05)); // ضربات الوتر
-}
-function musicSched(){
+}const Q_ROOT=[110,110,87.31,82.41],HI2=[880,880,698.46,830.61];
+const Q_PAD=[[220,261.63,329.63],[220,261.63,329.63],[174.61,220,261.63],[164.81,207.65,246.94]];
+function musicStep(st,t,sd){
+  if(MUS.mode==='menu')return menuStep(st,t,sd);
+  const b=Math.floor(st/16)%4,p=st%16;
+  if(p===0||p===3)mNote(120,t,.2,'sine',.75,40);                         // نبض القلب
+  if(p%4===2)mNoise(t,.03,.05,7500);                                      // تكتكة
+  if(p%2===0)mNote(Q_ROOT[b],t,sd*1.3,'sawtooth',p===0?.15:.1);           // باص نابض
+  if(p===0)Q_PAD[b].forEach(f=>mNote(f,t,sd*15,'triangle',.05));          // وتر ممتد
+  if(p===8)mNote(HI2[b],t,sd*5,'sine',.08);                               // نغمة عالية متباعدة
+  if(p===12&&b%2===1)mNote(HI2[b]*1.25,t,sd*3,'sine',.05);
+  if(b===3&&p>=10)mNoise(t,sd*1.2,.04+(p-10)*.025,2500+(p-10)*500);       // تصاعد قبل إعادة الدورة
+}function musicSched(){
   if(!MUS.on||!AC)return;
-  const bpm=MUS.mode==='menu'?80:((S&&cfg.time&&S.left>0&&S.left<=8)?150:128),sd=60/bpm/4;
+  const bpm=MUS.mode==='menu'?80:((S&&cfg.time&&S.left>0&&S.left<=8)?120:100),sd=60/bpm/4;
   while(MUS.next<AC.currentTime+.25){musicStep(MUS.step,MUS.next,sd);MUS.next+=sd;MUS.step++;}
 }
 function musicStart(mode){
