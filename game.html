@@ -419,7 +419,17 @@ function mNoise(t,d,v,hp){
   g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
   s.connect(f);f.connect(g);g.connect(MUS.master);s.start(t);s.stop(t+d+.02);
 }
-function musicStep(st,t,sd){
+function menuStep(st,t,sd){
+  const bar=Math.floor(st/16)%4,p=st%16,roots=[55,43.65,36.71,41.2],chs=[[220,261.63,329.63],[174.61,220,261.63],[146.83,174.61,220],[164.81,207.65,246.94]];
+  const root=roots[bar],ch=chs[bar];
+  if(p===0){mNote(root*2,t,sd*15,'sawtooth',.09);mNote(root*4,t,sd*15,'triangle',.07);}   // نغمة ممتدة مشدودة
+  if(p===0||p===3){mNote(110,t,.2,'sine',.8,38);}                                       // نبض القلب
+  if(p%4===2)mNote(1900,t,.03,'square',.03);                                             // تكتكة الساعة
+  if(p===8)mNote(ch[bar%3]*4,t,sd*6,'sine',.06);                                         // نغمة غامضة عالية
+  if(p===10)mNote(ch[(bar+1)%3]*2,t,sd*4,'triangle',.05);
+  if(bar===3&&p>=8)mNoise(t,sd*1.5,.03+(p-8)*.012,2500+(p-8)*600);                       // صعود التشويق
+  if(bar===3&&p===15)mNote(ch[0]*2,t,sd*3,'sawtooth',.06);
+}function musicStep(st,t,sd){if(MUS.mode==='menu')return menuStep(st,t,sd);
   const bar=Math.floor(st/16)%4,p=st%16,root=M_ROOT[bar],ch=M_CH[bar];
   if(p%4===0){mNote(150,t,.16,'sine',.55,45);}                       // طبلة
   if(p===4||p===12){mNoise(t,.14,.22,1500);mNote(220,t,.08,'triangle',.18);} // سنير
@@ -430,11 +440,11 @@ function musicStep(st,t,sd){
 }
 function musicSched(){
   if(!MUS.on||!AC)return;
-  const bpm=(S&&cfg.time&&S.left>0&&S.left<=8)?150:128,sd=60/bpm/4;
+  const bpm=MUS.mode==='menu'?80:((S&&cfg.time&&S.left>0&&S.left<=8)?150:128),sd=60/bpm/4;
   while(MUS.next<AC.currentTime+.25){musicStep(MUS.step,MUS.next,sd);MUS.next+=sd;MUS.step++;}
 }
-function musicStart(){
-  if(MUS.on||muted)return;const c=ac();if(!c)return;
+function musicStart(mode){
+  mode=mode||'game';if(MUS.on&&MUS.mode===mode)return;if(MUS.on)musicStop();if(muted)return;const c=ac();if(!c)return;MUS.mode=mode;
   if(!MUS.noise){const b=c.createBuffer(1,c.sampleRate*.5,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;MUS.noise=b;}
   MUS.master=c.createGain();MUS.master.gain.setValueAtTime(0.0001,c.currentTime);
   MUS.master.gain.linearRampToValueAtTime(1.1,c.currentTime+.4);
@@ -450,8 +460,8 @@ function musicStop(){
     m.gain.linearRampToValueAtTime(0.0001,c.currentTime+.25);setTimeout(()=>{try{m.disconnect();}catch(e){}},500);}
 }
 function syncMusic(){
-  const want=view==='game'&&S&&S.phase==='idle'&&!S.modal&&!muted&&!S.timeUp;
-  want?musicStart():musicStop();
+  const g=view==='game'&&S&&S.phase==='idle'&&!S.modal&&!muted&&!S.timeUp;
+  if(g)musicStart('game');else if(view==='setup'&&!muted)musicStart('menu');else musicStop();
 }
 addEventListener('pointerdown',()=>{ac();syncMusic();},{passive:true});
 addEventListener('keydown',()=>{ac();syncMusic();});
@@ -487,10 +497,10 @@ function syncSetup(){
   if(ts)cfg.time=+ts.value;
 }
 function renderSetup(){
-  view='setup';stopTimer();musicStop();
+  view='setup';stopTimer();syncMusic();
   app.innerHTML=`
   <div class="screen"><div class="card">
-    <img class="logo-img" alt="العبها صح واربح!" src="${LOGO}">
+    <button class="ghost" data-act="mute" id="mbtn" title="الصوت" style="position:fixed;top:12px;left:12px;z-index:5">${muted?'🔇':'🔊'}</button><img class="logo-img" alt="العبها صح واربح!" src="${LOGO}">
     <p class="sub">لعبة أسئلة جماعية — من يجيب إجابة صحيحة يربح السؤال</p>
     <h3>الفرق / اللاعبون</h3>
     <div id="plist">${cfg.names.map((n,i)=>`
@@ -747,7 +757,7 @@ const actions={
   next(){next();},
   ll(n){useLL(n);},
   closemodal(){closeModal();},
-  mute(){muted=!muted;render();},
+  mute(){muted=!muted;if(view==='game')render();else{syncMusic();const b=document.getElementById('mbtn');if(b)b.textContent=muted?'🔇':'🔊';}},
   ladder(){S.ladderOpen=!S.ladderOpen;render();},
   end(){if(confirm('هل تريد إنهاء اللعبة وعرض النتيجة؟'))endGame();},
   again(){ac();cfg.names=S.players.map(p=>p.name);startGame();},
