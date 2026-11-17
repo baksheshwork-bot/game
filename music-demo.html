@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>تجربة موسيقى الأسئلة</title>
+<style>
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0d0746;color:#fff;font-family:Tahoma,Arial,sans-serif;padding:16px;box-sizing:border-box}
+.box{max-width:520px;width:100%;text-align:center}
+h1{font-size:24px;margin:0 0 6px}p{opacity:.8;margin:0 0 22px;line-height:1.7}
+button{display:block;width:100%;margin:12px 0;padding:16px;border-radius:14px;border:2px solid #c9ceea;background:#1a1070;color:#fff;font-size:18px;font-weight:700;cursor:pointer;font-family:inherit}
+button small{display:block;font-weight:400;opacity:.8;font-size:14px;margin-top:4px}
+button.on{background:#f08a1c;border-color:#ffd089;color:#1b0b00}
+</style>
+</head>
+<body>
+<div class="box">
+<h1>اختر موسيقى الأسئلة</h1>
+<p>اضغط على أي خيار للاستماع، واضغط عليه مرة ثانية للإيقاف.</p>
+<button data-s="1">١ — مسابقة كلاسيكية<small>لحن واضح يتكرر مع إيقاع ثابت، مثل برامج المسابقات</small></button>
+<button data-s="2">٢ — تشويق نابض<small>أبطأ وأكثر توترًا: نبض قلب وتكتكة ونغمات متباعدة</small></button>
+<button data-s="3">٣ — حماس سريع<small>إيقاف سريع وخفيف ومرح، مناسب للتنافس بين الفرق</small></button>
+</div>
+<script>
+let AC=null,master=null,noise=null,timer=null,next=0,step=0,cur=0;
+function ac(){if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();return AC;}
+function mNote(f,t,d,type,v,slide){const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.setValueAtTime(f,t);
+  if(slide)o.frequency.exponentialRampToValueAtTime(slide,t+d);
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+d);
+  o.connect(g);g.connect(master);o.start(t);o.stop(t+d+.05);}
+function mNoise(t,d,v,hp){const s=AC.createBufferSource(),g=AC.createGain(),f=AC.createBiquadFilter();s.buffer=noise;f.type='highpass';f.frequency.value=hp;
+  g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);s.connect(f);f.connect(g);g.connect(master);s.start(t);s.stop(t+d+.02);}
+
+/* ١ — مسابقة كلاسيكية */
+const R1=[110,110,87.31,82.41],P1=[[220,261.63,329.63],[220,261.63,329.63],[174.61,220,261.63],[164.81,207.65,246.94]];
+const M1=[{0:440,3:523.25,6:659.25,10:587.33,12:523.25},{0:440,3:523.25,6:659.25,10:783.99,12:659.25},{0:698.46,3:659.25,6:523.25,8:440,12:523.25},{0:659.25,3:622.25,6:659.25,8:830.61,12:659.25}];
+function s1(st,t,sd){const b=Math.floor(st/16)%4,p=st%16;
+  if(p%4===0)mNote(140,t,.15,'sine',.5,45);
+  if(p===4||p===12)mNoise(t,.1,.12,1800);
+  if(p%4===2)mNoise(t,.03,.045,8000);
+  if(p%2===0)mNote(R1[b],t,sd*1.7,'sawtooth',.13);
+  if(p===0)P1[b].forEach(f=>mNote(f,t,sd*15,'triangle',.035));
+  const m=M1[b][p];if(m){mNote(m,t,sd*2.6,'triangle',.14);mNote(m*2,t,sd*1.6,'sine',.04);}
+  if(b===3&&p>=12)mNoise(t,sd*.9,.07+(p-12)*.05,3000);}
+
+/* ٢ — تشويق نابض */
+const HI2=[880,880,698.46,830.61];
+function s2(st,t,sd){const b=Math.floor(st/16)%4,p=st%16;
+  if(p===0||p===3)mNote(120,t,.2,'sine',.75,40);
+  if(p%4===2)mNoise(t,.03,.05,7500);
+  if(p%2===0)mNote(R1[b],t,sd*1.3,'sawtooth',p===0?.15:.1);
+  if(p===0)P1[b].forEach(f=>mNote(f,t,sd*15,'triangle',.05));
+  if(p===8)mNote(HI2[b],t,sd*5,'sine',.08);
+  if(p===12&&b%2===1)mNote(HI2[b]*1.25,t,sd*3,'sine',.05);
+  if(b===3&&p>=10)mNoise(t,sd*1.2,.04+(p-10)*.025,2500+(p-10)*500);}
+
+/* ٣ — حماس سريع */
+const R3=[110,87.31,130.81,98];
+const L3=[{0:659.25,3:659.25,6:523.25,8:587.33,11:659.25,14:523.25},{0:698.46,3:698.46,6:523.25,8:587.33,11:698.46,14:523.25},{0:783.99,3:783.99,6:659.25,8:587.33,11:659.25,14:523.25},{0:587.33,3:587.33,6:493.88,8:587.33,11:783.99,14:587.33}];
+function s3(st,t,sd){const b=Math.floor(st/16)%4,p=st%16;
+  if(p%4===0)mNote(150,t,.14,'sine',.55,45);
+  if(p===4||p===12)mNoise(t,.1,.16,1800);
+  if(p%4===2){mNoise(t,.04,.08,7000);mNote(R3[b],t,sd*1.8,'sawtooth',.15);}
+  const m=L3[b][p];if(m)mNote(m,t,sd*1.6,'triangle',.14);
+  if(b===3&&p>=12)mNoise(t,sd*.9,.06+(p-12)*.04,3500);}
+
+const S={1:{f:s1,bpm:112},2:{f:s2,bpm:100},3:{f:s3,bpm:132}};
+function sched(){const c=AC,s=S[cur],sd=60/s.bpm/4;while(next<c.currentTime+.25){s.f(step,next,sd);next+=sd;step++;}}
+function stop(){clearInterval(timer);timer=null;if(master){const m=master;m.gain.cancelScheduledValues(AC.currentTime);m.gain.setValueAtTime(Math.max(.0001,m.gain.value),AC.currentTime);m.gain.linearRampToValueAtTime(.0001,AC.currentTime+.2);setTimeout(()=>{try{m.disconnect()}catch(e){}},400);}cur=0;}
+function play(n){const c=ac();
+  if(!noise){const b=c.createBuffer(1,c.sampleRate*.5,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;noise=b;}
+  master=c.createGain();master.gain.setValueAtTime(.0001,c.currentTime);master.gain.linearRampToValueAtTime(1.1,c.currentTime+.4);
+  const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=3800;const cp=c.createDynamicsCompressor();
+  master.connect(lp);lp.connect(cp);cp.connect(c.destination);
+  cur=n;next=c.currentTime+.08;step=0;timer=setInterval(sched,60);sched();}
+document.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+  const n=+b.dataset.s,was=cur;if(cur)stop();
+  document.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+  if(was!==n){play(n);b.classList.add('on');}
+}));
+</script>
+</body>
+</html>
